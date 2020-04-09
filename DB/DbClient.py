@@ -72,6 +72,8 @@ class DbClient(object):
             __type = "RedisClient"
         elif "MONGODB" == config.db_type:
             __type = "MongodbClient"
+        elif "MYSQL" == config.db_type:
+            __type = "MySQLClient"
         else:
             pass
         assert __type, 'type error, Not support DB type: {}'.format(config.db_type)
