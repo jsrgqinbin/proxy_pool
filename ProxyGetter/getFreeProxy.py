@@ -11,10 +11,10 @@
                    2016/11/25:
 -------------------------------------------------
 """
-import re
 import sys
-import requests
 from time import sleep
+
+from Util.scrapeProxies import *
 
 sys.path.append('..')
 
@@ -335,10 +335,30 @@ class GetFreeProxy(object):
             for ip in ips:
                 yield ip.strip()
 
+    @staticmethod
+    def freeProxy16():
+        loop = asyncio.get_event_loop()
+        asyncio.set_event_loop(loop)
+        # 相当于开启一个future
+        get_future = asyncio.ensure_future(GetFreeProxy.freeProxy16Async())
+        # 事件循环
+        loop.run_until_complete(get_future)
+        loop.close()
+        proxy_list = get_future.result()
+        return proxy_list
+
+    @staticmethod
+    async def freeProxy16Async():
+        spider = await PyppeteerSpider(headless=True).launch()
+        proxy_list = await scrape_free_proxy_list_net(spider)
+        await spider.shutdown()
+        return proxy_list
+
 
 if __name__ == '__main__':
     from CheckProxy import CheckProxy
 
+    # asyncio.get_event_loop().run_until_complete(GetFreeProxy.freeProxy16())
     # CheckProxy.checkGetProxyFunc(GetFreeProxy.freeProxy01)
     # CheckProxy.checkGetProxyFunc(GetFreeProxy.freeProxy02)
     # CheckProxy.checkGetProxyFunc(GetFreeProxy.freeProxy03)
@@ -350,6 +370,7 @@ if __name__ == '__main__':
     # CheckProxy.checkGetProxyFunc(GetFreeProxy.freeProxy09)
     # CheckProxy.checkGetProxyFunc(GetFreeProxy.freeProxy13)
     # CheckProxy.checkGetProxyFunc(GetFreeProxy.freeProxy14)
+    # CheckProxy.checkGetProxyFunc(GetFreeProxy.freeProxy15)
     # CheckProxy.checkGetProxyFunc(GetFreeProxy.freeProxy15)
 
     CheckProxy.checkAllGetProxyFunc()

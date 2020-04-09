@@ -33,11 +33,10 @@ HEADER = """
 
 PY3 = sys.version_info >= (3,)
 
-DB_TYPE = getenv('db_type', 'REDIS').upper()
+DB_TYPE = getenv('db_type', 'MYSQL').upper()
 DB_HOST = getenv('db_host', '127.0.0.1')
-DB_PORT = getenv('db_port', 6379)
-DB_PASSWORD = getenv('db_password', '')
-
+DB_PORT = getenv('db_port', 3306)
+DB_PASSWORD = getenv('db_password', 'abc123')
 
 """ 数据库配置 """
 DATABASES = {
@@ -53,18 +52,19 @@ DATABASES = {
 # register the proxy getter function
 
 PROXY_GETTER = [
-    "freeProxy01",
-    # "freeProxy02",
-    "freeProxy03",
-    "freeProxy04",
-    "freeProxy05",
-    # "freeProxy06",
-    "freeProxy07",
-    # "freeProxy08",
-    "freeProxy09",
-    "freeProxy13",
-    "freeProxy14",
-    "freeProxy14",
+    # "freeProxy01",
+    # # "freeProxy02",
+    # "freeProxy03",
+    # "freeProxy04",
+    # "freeProxy05",
+    # # "freeProxy06",
+    # "freeProxy07",
+    # # "freeProxy08",
+    # "freeProxy09",
+    # "freeProxy13",
+    # "freeProxy14",
+    # "freeProxy15",
+    "freeProxy16",
 ]
 
 """ API config http://127.0.0.1:5010 """
@@ -79,7 +79,7 @@ class ConfigError(BaseException):
 
 
 def checkConfig():
-    if DB_TYPE not in ["SSDB", "REDIS"]:
+    if DB_TYPE not in ["SSDB", "REDIS", "MYSQL"]:
         raise ConfigError('db_type Do not support: %s, must SSDB/REDIS .' % DB_TYPE)
 
     if type(DB_PORT) == str and not DB_PORT.isdigit():

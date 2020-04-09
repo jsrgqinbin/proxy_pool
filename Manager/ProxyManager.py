@@ -14,6 +14,7 @@
 __author__ = 'JHao'
 
 import random
+import traceback
 
 from ProxyHelper import Proxy
 from DB.DbClient import DbClient
@@ -49,20 +50,18 @@ class ProxyManager(object):
                     proxy = proxy.strip()
 
                     if not proxy or not verifyProxyFormat(proxy):
-                        self.log.error('ProxyFetch - {func}: '
-                                       '{proxy} illegal'.format(func=proxyGetter, proxy=proxy.ljust(20)))
+                        self.log.error('ProxyFetch - {func}: {proxy} illegal'.format(func=proxyGetter, proxy=proxy.ljust(20)))
                         continue
                     elif proxy in proxy_set:
-                        self.log.info('ProxyFetch - {func}: '
-                                      '{proxy} exist'.format(func=proxyGetter, proxy=proxy.ljust(20)))
+                        self.log.info('ProxyFetch - {func}: {proxy} exist'.format(func=proxyGetter, proxy=proxy.ljust(20)))
                         continue
                     else:
-                        self.log.info('ProxyFetch - {func}: '
-                                      '{proxy} success'.format(func=proxyGetter, proxy=proxy.ljust(20)))
+                        self.log.info('ProxyFetch - {func}: {proxy} success'.format(func=proxyGetter, proxy=proxy.ljust(20)))
                         self.db.put(Proxy(proxy, source=proxyGetter))
                         proxy_set.add(proxy)
             except Exception as e:
                 self.log.error("ProxyFetch - {func}: error".format(func=proxyGetter))
+                self.log.error(traceback.format_exc())
                 self.log.error(str(e))
 
     def get(self):

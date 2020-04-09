@@ -12,9 +12,9 @@
 
 __author__ = 'Masazumi'
 
-DB = "proxy"
-USER = "root"
-PASSWD = "toor"
+DB = "proxy_pool"
+USER = "proxy_pool"
+PASSWD = "abc123"
 
 import pymysql
 from DBUtils.PooledDB import PooledDB
@@ -23,7 +23,8 @@ from DBUtils.PooledDB import PooledDB
 class MySQLClient(object):
     _pool = None
 
-    def __init__(self, name, host, port):
+    def __init__(self, name, host, port, password):
+        self.password = password
         self.name = name
         if MySQLClient._pool is None:
             self.initPool(host, port)
@@ -39,13 +40,22 @@ class MySQLClient(object):
     def changeTable(self, name):
         self.name = name
 
-    def put(self, proxy, num=1):
+    def put(self, proxy_obj, num=1):
         conn = MySQLClient._pool.connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT proxy,info_json FROM %s where proxy='%s'" % (self.name, proxy_obj.proxy))
+        results = cursor.fetchall()
         try:
-            if self.name is "raw_proxy":
-                conn.cursor().execute("INSERT INTO %s(proxy) VALUES ('%s')" % (self.name, proxy))
+            if len(results) > 0:
+                if self.name is "raw_proxy":
+                    conn.cursor().execute("update %s set info_json='%s' where proxy='%s')" % (self.name, proxy_obj.info_json, proxy_obj.proxy))
+                else:
+                    conn.cursor().execute("update %s set info_json='%s',`count`=`count`+1 where proxy='%s')" % (self.name, proxy_obj.info_json, proxy_obj.proxy))
             else:
-                conn.cursor().execute("INSERT INTO %s(proxy,count) VALUES ('%s',%d)" % (self.name, proxy, num))
+                if self.name is "raw_proxy":
+                    conn.cursor().execute("INSERT INTO %s(proxy,info_json) VALUES ('%s','%s')" % (self.name, proxy_obj.proxy, proxy_obj.info_json))
+                else:
+                    conn.cursor().execute("INSERT INTO %s(proxy,info_json,`count`) VALUES ('%s','%s',%d)" % (self.name, proxy_obj.proxy, proxy_obj.info_json, num))
             conn.commit()
         # 插入重复的proxy
         except pymysql.err.IntegrityError:
@@ -83,11 +93,12 @@ class MySQLClient(object):
         data = {}
         conn = MySQLClient._pool.connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT proxy,count FROM %s" % self.name)
+        cursor.execute("SELECT proxy,info_json FROM %s" % self.name)
         conn.commit()
         results = cursor.fetchall()
+        data = []
         for result in results:
-            data[result[0]] = result[1]
+            data.append(result[1])
         conn.close()
         return data
 
@@ -110,6 +121,13 @@ class MySQLClient(object):
         result = cursor.fetchone()[0]
         conn.close()
         return result
+
+    def clear(self):
+        conn = MySQLClient._pool.connection()
+        cursor = conn.cursor()
+        cursor.execute("truncate table %s" % self.name)
+        conn.commit()
+        return True
 
     def update(self, key, value):
         """
