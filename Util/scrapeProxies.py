@@ -1,3 +1,4 @@
+from pyppeteer import launch
 from pyppeteer_spider.spider import PyppeteerSpider
 from typing import Optional, List
 import asyncio
@@ -15,19 +16,55 @@ def proxy_ok(proxy):
     return response.status_code == 200
 
 
-async def scrape_free_proxy_list_net(spider: PyppeteerSpider):
-    page = await spider.get('https://free-proxy-list.net')
+async def scrape_free_proxy_list_net():
+    # spider = await PyppeteerSpider(headless=True).launch()
+    # page = await spider.get('https://free-proxy-list.net')
+    # proxies = set()
+    # while True:
+    #     await asyncio.sleep(random.uniform(2, 3))
+    #     col_names = [
+    #         await page.evaluate('(ele) => ele.innerText.toLowerCase()', ele)
+    #         for ele in await page.xpath(
+    #             '//*[@id="proxylisttable"]/thead/*[@role="row"]//*[@aria-label]'
+    #         )
+    #     ]
+    #     for row in await page.xpath(
+    #             '//*[@id="proxylisttable"]/tbody/*[@role="row"]'):
+    #         col_values = [
+    #             await page.evaluate('(ele) => ele.innerText', ele)
+    #             for ele in await row.xpath('./td')
+    #         ]
+    #         row_data = dict(zip(col_names, col_values))
+    #         proxies.add(row_data['ip address\t'].replace("\t", '') + ":" + row_data["port\t"].replace("\t", ''))
+    #     next_button_ele = await page.xpath('//*[@class="fg-button ui-button ui-state-default next"]')
+    #     if next_button_ele:
+    #         await next_button_ele[0].click()
+    #     else:
+    #         await spider.set_idle(page)
+    #         print(
+    #             f"Extracted {len(proxies)} total proxies from free-proxy-list.net"
+    #         )
+    #         await spider.shutdown()
+    #         return proxies
+    browser = await launch(
+        headless=True,
+        handleSIGINT=False,
+        handleSIGTERM=False,
+        handleSIGHUP=False
+    )
+    page = await browser.newPage()
+    await page.goto('https://free-proxy-list.net', {
+        "waitLoad": True,
+        "waitNetworkIdle": True
+    })
     proxies = set()
     while True:
         await asyncio.sleep(random.uniform(2, 3))
         col_names = [
             await page.evaluate('(ele) => ele.innerText.toLowerCase()', ele)
-            for ele in await page.xpath(
-                '//*[@id="proxylisttable"]/thead/*[@role="row"]//*[@aria-label]'
-            )
+            for ele in await page.xpath('//*[@id="proxylisttable"]/thead/*[@role="row"]//*[@aria-label]')
         ]
-        for row in await page.xpath(
-                '//*[@id="proxylisttable"]/tbody/*[@role="row"]'):
+        for row in await page.xpath('//*[@id="proxylisttable"]/tbody/*[@role="row"]'):
             col_values = [
                 await page.evaluate('(ele) => ele.innerText', ele)
                 for ele in await row.xpath('./td')
@@ -38,28 +75,39 @@ async def scrape_free_proxy_list_net(spider: PyppeteerSpider):
         if next_button_ele:
             await next_button_ele[0].click()
         else:
-            await spider.set_idle(page)
+            await browser.close()
             print(
                 f"Extracted {len(proxies)} total proxies from free-proxy-list.net"
             )
             return proxies
 
 
-async def scrape_spys_one(spider: PyppeteerSpider,
-                          protocols: List[str] = ['http', 'socks4', 'socks5'],
-                          countries: Optional[List[str]] = None):
+async def scrape_spys_one(protocols: List[str] = ['http'], countries: Optional[List[str]] = ['US', 'UK', 'DE', 'JP']):
+    """
+    protocols: List[str] = ['http', 'socks4', 'socks5']
+    """
+    proxies = set()
+    browser = await launch(
+        headless=True,
+        handleSIGINT=False,
+        handleSIGTERM=False,
+        handleSIGHUP=False
+    )
+    page = await browser.newPage()
     if countries is None:
-        page = await spider.get('http://spys.one/proxys')
+        await page.goto('http://spys.one/proxys')
+        await asyncio.sleep(random.uniform(2, 3))
         countries = [
             await page.evaluate('(ele) => ele.innerText', ele) for ele in await
             page.xpath('//a[@href]//*[@class="spy6"]//*[@class="spy4"]')
         ]
-        await spider.set_idle(page)
-    proxies = set()
     for country in countries:
         print(f"Extracting proxies from Spys {country}.")
-        page = await spider.get(f'http://spys.one/proxys/{country}',
-                                waitUntil=['load', 'networkidle2'])
+        await page.goto(f'http://spys.one/proxys/{country}', {
+            "waitLoad": True,
+            "waitNetworkIdle": True
+        })
+        await asyncio.sleep(random.uniform(2, 3))
         table_rows = [
             await page.evaluate('(ele) => ele.innerText', ele)
             for ele in await page.xpath('//*[contains(@class,"spy1x")]')
@@ -76,10 +124,42 @@ async def scrape_spys_one(spider: PyppeteerSpider,
                 match.group(1) for match in proxy_matches
                 if protocol.lower() in match.group(2).lower()
             ])
-        await spider.set_idle(page)
         await asyncio.sleep(random.uniform(2, 3))
-    print(f"Extracted {len(proxies)} total proxies from Spys One.")
+        print(f"Extracted {len(proxies)} total proxies from Spys One.")
+    await browser.close()
     return proxies
+    # if countries is None:
+    #     page = await spider.get('http://spys.one/proxys')
+    #     countries = [
+    #         await page.evaluate('(ele) => ele.innerText', ele) for ele in await
+    #         page.xpath('//a[@href]//*[@class="spy6"]//*[@class="spy4"]')
+    #     ]
+    #     await spider.set_idle(page)
+    # proxies = set()
+    # for country in countries:
+    #     print(f"Extracting proxies from Spys {country}.")
+    #     page = await spider.get(f'http://spys.one/proxys/{country}',
+    #                             waitUntil=['load', 'networkidle2'])
+    #     table_rows = [
+    #         await page.evaluate('(ele) => ele.innerText', ele)
+    #         for ele in await page.xpath('//*[contains(@class,"spy1x")]')
+    #     ]
+    #     proxy_matches = [
+    #         re.search(
+    #             r'(?i)(' + addr_port_re +
+    #             r')\s{0,2}(http|https|socks4|socks5)', row)
+    #         for row in table_rows
+    #     ]
+    #     proxy_matches = [m for m in proxy_matches if m is not None]
+    #     for protocol in protocols:
+    #         proxies.update([
+    #             match.group(1) for match in proxy_matches
+    #             if protocol.lower() in match.group(2).lower()
+    #         ])
+    #     await spider.set_idle(page)
+    #     await asyncio.sleep(random.uniform(2, 3))
+    # print(f"Extracted {len(proxies)} total proxies from Spys One.")
+    # return proxies
 
 
 def scrape_proxyscrape_proxies(

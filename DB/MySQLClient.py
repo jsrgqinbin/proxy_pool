@@ -24,65 +24,44 @@ class MySQLClient(object):
     _pool = None
 
     def __init__(self, name, host, port, password):
-        self.password = password
         self.name = name
-        if MySQLClient._pool is None:
-            self.initPool(host, port)
-
-    @staticmethod
-    def initPool(host, port):
-        MySQLClient._pool = PooledDB(creator=pymysql, host=host, port=port, user=USER, passwd=PASSWD, db=DB)
-        try:
-            MySQLClient._pool.connection()
-        except Exception:
-            exit("Unable to get connections from MySQL")
+        self._pool = MyDb(host=host, port=port, username=USER, password=password, dbname=DB)
 
     def changeTable(self, name):
         self.name = name
 
     def put(self, proxy_obj, num=1):
-        conn = MySQLClient._pool.connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT proxy,info_json FROM %s where proxy='%s'" % (self.name, proxy_obj.proxy))
-        results = cursor.fetchall()
+        results = self._pool.getAllResult("SELECT proxy,info_json FROM %s where proxy='%s'" % (self.name, proxy_obj.proxy))
         try:
             if len(results) > 0:
                 if self.name is "raw_proxy":
-                    conn.cursor().execute("update %s set info_json='%s' where proxy='%s')" % (self.name, proxy_obj.info_json, proxy_obj.proxy))
+                    sql = "update %s set info_json='%s' where proxy='%s')" % (self.name, proxy_obj.info_json, proxy_obj.proxy)
                 else:
-                    conn.cursor().execute("update %s set info_json='%s',`count`=`count`+1 where proxy='%s')" % (self.name, proxy_obj.info_json, proxy_obj.proxy))
+                    sql = "update %s set info_json='%s',`count`=`count`+1 where proxy='%s')" % (self.name, proxy_obj.info_json, proxy_obj.proxy)
             else:
                 if self.name is "raw_proxy":
-                    conn.cursor().execute("INSERT INTO %s(proxy,info_json) VALUES ('%s','%s')" % (self.name, proxy_obj.proxy, proxy_obj.info_json))
+                    sql = "INSERT INTO %s(proxy,info_json) VALUES ('%s','%s')" % (self.name, proxy_obj.proxy, proxy_obj.info_json)
                 else:
-                    conn.cursor().execute("INSERT INTO %s(proxy,info_json,`count`) VALUES ('%s','%s',%d)" % (self.name, proxy_obj.proxy, proxy_obj.info_json, num))
-            conn.commit()
+                    sql = "INSERT INTO %s(proxy,info_json,`count`) VALUES ('%s','%s',%d)" % (
+                        self.name, self._pool.escape_string(proxy_obj.proxy), self._pool.escape_string(proxy_obj.info_json), num)
+            self._pool.insertOrUdateInfo(sql)
         # 插入重复的proxy
         except pymysql.err.IntegrityError:
-            conn.close()
-        conn.close()
+            self._pool.close()
 
     def delete(self, key):
-        conn = MySQLClient._pool.connection()
-        conn.cursor().execute("DELETE FROM %s WHERE proxy='%s'" % (self.name, key))
-        conn.commit()
-        conn.close()
+        self._pool.insertOrUdateInfo("DELETE FROM %s WHERE proxy='%s'" % (self.name, key))
 
     def pop(self):
         """
         弹出一个代理, 只对raw_proxy表使用
         :return: dict {proxy: value}
         """
-        conn = MySQLClient._pool.connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT proxy FROM %s LIMIT 0,1" % self.name)
-        conn.commit()
-        result = cursor.fetchone()
+        result = self._pool.getAllResult("SELECT proxy FROM %s LIMIT 0,1" % self.name)
         data = None
         if result is not None:
             self.delete(result[0])
             data = {"proxy": result[0]}
-        conn.close()
         return data
 
     def getAll(self):
@@ -90,43 +69,24 @@ class MySQLClient(object):
         获取所有代理, 只对useful_proxy表使用
         :return: dict {proxy: value, proxy: value, ...}
         """
-        data = {}
-        conn = MySQLClient._pool.connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT proxy,info_json FROM %s" % self.name)
-        conn.commit()
-        results = cursor.fetchall()
+        results = self._pool.getAllResult("SELECT proxy,info_json FROM %s" % self.name)
         data = []
         for result in results:
             data.append(result[1])
-        conn.close()
         return data
 
     def exists(self, key):
-        conn = MySQLClient._pool.connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT proxy FROM %s WHERE proxy='%s'" % (self.name, key))
-        conn.commit()
-        if cursor.fetchone() is None:
-            conn.close()
+        result = self._pool.getSignleResult("SELECT proxy FROM %s WHERE proxy='%s'" % (self.name, key))
+        if result is None:
             return False
-        conn.close()
         return True
 
     def getNumber(self):
-        conn = MySQLClient._pool.connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT COUNT(*) FROM %s" % self.name)
-        conn.commit()
-        result = cursor.fetchone()[0]
-        conn.close()
-        return result
+        result = self._pool.getSignleResult("SELECT COUNT(*) FROM %s" % self.name)
+        return result[0]
 
     def clear(self):
-        conn = MySQLClient._pool.connection()
-        cursor = conn.cursor()
-        cursor.execute("truncate table %s" % self.name)
-        conn.commit()
+        self._pool.insertOrUdateInfo("truncate table %s" % self.name)
         return True
 
     def update(self, key, value):
@@ -142,6 +102,71 @@ class MySQLClient(object):
         pass
 
 
+class MyDb:
+    cursor = ''  # 句柄
+    db = ''  # 打开数据库连接
+    '''
+        定义构造方法
+        host：主机名
+        username;用户名
+        password:密码
+        dbname:数据库名
+        db:打开数据库连接
+        cursor:获取游标句柄
+    '''
+
+    def __init__(self, host, port, username, password, dbname):
+        self.port = port
+        self.host = host
+        self.username = username
+        self.password = password
+        self.dbname = dbname
+
+        self.db = pymysql.connect(host=self.host, port=self.port, user=self.username, password=self.password, database=self.dbname)
+        self.cursor = self.db.cursor()
+
+    def escape_string(self, key):
+        return self.db.escape_string(key)
+
+    # 获取所有的结果集
+    def getAllResult(self, sql):
+        self.db.ping(reconnect=True)
+        self.cursor.execute(sql)
+        results = self.cursor.fetchall()
+        return results
+
+    # 获取所有的结果集
+    def getSignleResult(self, sql):
+        self.db.ping(reconnect=True)
+        self.cursor.execute(sql)
+        results = self.cursor.fetchone()
+        return results
+
+    # 插入或更新数据
+    def insertOrUdateInfo(self, sql):
+        try:
+            # 执行SQL语句
+            self.db.ping(reconnect=True)
+            self.cursor.execute(sql)
+            # 提交到数据库执行
+            self.db.commit()
+        except:
+            # 发生错误时回滚
+            self.db.rollback()
+        # 返回受影响的行数
+        return self.cursor.rowcount
+
+    def clear(self):
+        self.db.ping(reconnect=True)
+        self.cursor.execute("truncate table %s" % self.name)
+        self.db.commit()
+        return True
+
+    # 关闭链接
+    def close(self):
+        self.db.close()
+
+
 if __name__ == '__main__':
-    c = MySQLClient('useful_proxy', 'localhost', 3306)
+    c = MySQLClient('useful_proxy', 'localhost', 3306, 'abc123')
     print(c.pop())

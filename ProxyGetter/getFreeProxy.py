@@ -12,6 +12,7 @@
 -------------------------------------------------
 """
 import sys
+import urllib.request
 from time import sleep
 
 from Util.scrapeProxies import *
@@ -337,28 +338,20 @@ class GetFreeProxy(object):
 
     @staticmethod
     def freeProxy16():
-        loop = asyncio.get_event_loop()
-        asyncio.set_event_loop(loop)
-        # 相当于开启一个future
-        get_future = asyncio.ensure_future(GetFreeProxy.freeProxy16Async())
-        # 事件循环
-        loop.run_until_complete(get_future)
-        loop.close()
-        proxy_list = get_future.result()
-        return proxy_list
-
-    @staticmethod
-    async def freeProxy16Async():
-        spider = await PyppeteerSpider(headless=True).launch()
-        proxy_list = await scrape_free_proxy_list_net(spider)
-        await spider.shutdown()
-        return proxy_list
+        selected = ['http', 'https']
+        for type in selected:
+            urllib.request.urlretrieve('https://api.proxyscrape.com/?request=getproxies&proxytype=' + str(type) + '&timeout=10000&country=all', str(type) + 'proxylist.txt')
+            f = open(str(type) + 'proxylist.txt', "r+")
+            f = f.readlines()
+            for line in f:
+                yield line.strip()
 
 
 if __name__ == '__main__':
     from CheckProxy import CheckProxy
 
-    # asyncio.get_event_loop().run_until_complete(GetFreeProxy.freeProxy16())
+    # print(GetFreeProxy.freeProxy16())
+    # exit()
     # CheckProxy.checkGetProxyFunc(GetFreeProxy.freeProxy01)
     # CheckProxy.checkGetProxyFunc(GetFreeProxy.freeProxy02)
     # CheckProxy.checkGetProxyFunc(GetFreeProxy.freeProxy03)

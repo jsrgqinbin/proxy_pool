@@ -48,7 +48,6 @@ class ProxyManager(object):
             try:
                 for proxy in getattr(GetFreeProxy, proxyGetter.strip())():
                     proxy = proxy.strip()
-
                     if not proxy or not verifyProxyFormat(proxy):
                         self.log.error('ProxyFetch - {func}: {proxy} illegal'.format(func=proxyGetter, proxy=proxy.ljust(20)))
                         continue
@@ -61,8 +60,8 @@ class ProxyManager(object):
                         proxy_set.add(proxy)
             except Exception as e:
                 self.log.error("ProxyFetch - {func}: error".format(func=proxyGetter))
-                self.log.error(traceback.format_exc())
                 self.log.error(str(e))
+                self.log.error(traceback.format_exc())
 
     def get(self):
         """
