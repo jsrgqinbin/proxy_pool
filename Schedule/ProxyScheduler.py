@@ -48,6 +48,7 @@ def usefulProxyScheduler():
 
 
 def runScheduler():
+    proxyFetchScheduler()
     rawProxyScheduler()
     usefulProxyScheduler()
 
