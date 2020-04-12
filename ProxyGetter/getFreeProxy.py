@@ -346,11 +346,28 @@ class GetFreeProxy(object):
             for line in f:
                 yield line.strip()
 
+    @staticmethod
+    def freeProxy17(max_page=10):
+        base_url = 'https://proxygather.com/proxylist/anonymity/?t=Elite#'
+        request = WebRequest()
+        for page in range(1, max_page + 1):
+            url = base_url + str(page)
+            r = request.get(url, timeout=10)
+            proxies = re.findall(
+                r'"PROXY_IP":"(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})",[\s\S]*?"PROXY_PORT":"([0-9A-Z]{1,5})",',
+                r.text
+            )
+            for proxy in proxies:
+                ip_addr = proxy[0]
+                port = proxy[1]
+                yield '{}:{}'.format(ip_addr, int(port, 16))
+
 
 if __name__ == '__main__':
     from CheckProxy import CheckProxy
 
     # print(GetFreeProxy.freeProxy16())
+    # print(GetFreeProxy.freeProxy17())
     # exit()
     # CheckProxy.checkGetProxyFunc(GetFreeProxy.freeProxy01)
     # CheckProxy.checkGetProxyFunc(GetFreeProxy.freeProxy02)
