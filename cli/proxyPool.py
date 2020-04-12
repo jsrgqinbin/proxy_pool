@@ -12,16 +12,17 @@
 """
 __author__ = 'JHao'
 
+import os
 import sys
 import click
 import platform
-
 sys.path.append('../')
 
 from Config.setting import HEADER
 from Schedule.ProxyScheduler import runScheduler
 from Schedule.ProxyAsyncScheduler import runAsyncScheduler
 from Api.ProxyApi import runFlask, runFlaskWithGunicorn
+os.environ['TZ'] = 'Asia/Shanghai'
 
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 
